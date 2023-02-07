@@ -68,6 +68,9 @@ def _column_as_field(column: Column, pk_column: Column = None) -> tuple[str, mod
         blank=column.nullable,
     )
 
+    if column is column.table.primary_key._autoincrement_column:
+        field_class = models.AutoField
+
     if isinstance(column.type, types.Enum):
         kwargs['choices'] = [(i, i) for i in column.type.enums]
 
