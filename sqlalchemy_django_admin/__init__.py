@@ -64,9 +64,6 @@ def _column_as_field(column: Column, pk_column: Column = None) -> tuple[str, mod
         null=column.nullable,
         default=_convert_default(column.default),
         primary_key=primary_key,
-        # PK is not editable by default, because if you change it,
-        # Django will just create new object on .save()
-        editable=not primary_key,
         # By default only nullable fields marked as not required
         blank=column.nullable,
     )
@@ -84,23 +81,30 @@ def _column_as_field(column: Column, pk_column: Column = None) -> tuple[str, mod
         # Trying to find the original table column which is referred from here.
         # Way to deal with composite fk (composite pk reference)
         foreign_key = None
-        col = column
-        while col.foreign_keys:
+        related_column = column
+        while related_column.foreign_keys:
             # FIXME: what do we do if there are more than 1 fk?
-            foreign_key, *_ = col.foreign_keys
-            col = foreign_key.column
+            foreign_key, *_ = related_column.foreign_keys
+            related_column = foreign_key.column
 
-        # FIXME: dirty hack
-        name = name[:-3] if name.endswith('_id') else f'{name}_obj'
-
-        field_class = fields.ForeignKey
-        related_model_name = _generate_model_name(foreign_key.column.table)
-        kwargs |= dict(
-            to=f'sqlalchemy_django_admin.{related_model_name}',
-            on_delete=models.PROTECT,
-            to_field=foreign_key.column.name,
-            db_column=column.name,
+        # Making django foreign key only if the column refers
+        # to the only primary key of related table
+        is_unique_pk = (
+            related_column.primary_key
+            and len(related_column.table.primary_key.columns) == 1
         )
+        if is_unique_pk:
+            # FIXME: dirty hack
+            name = name[:-3] if name.endswith('_id') else f'{name}_obj'
+
+            field_class = fields.ForeignKey
+            related_model_name = _generate_model_name(related_column.table)
+            kwargs |= dict(
+                to=f'sqlalchemy_django_admin.{related_model_name}',
+                on_delete=models.PROTECT,
+                to_field=related_column.name,
+                db_column=column.name,
+            )
 
     return name, field_class(**kwargs)
 
@@ -119,13 +123,11 @@ def table_as_model(
     attrs = dict(_column_as_field(column, pk_column) for column in table.columns)
 
     # Deal with composite primary key
-    primary_fields = {k: v for k, v in attrs.items() if v.primary_key}
+    primary_fields = [field for field in attrs.values() if field.primary_key]
     if len(primary_fields) > 1:
-        primary_columns = []
-        for field_name, field in primary_fields.items():
+        for field in primary_fields:
             field.primary_key = False
-            primary_columns.append(field.db_column or field_name)
-        attrs['id'] = fields.CompositeKeyField(primary_columns)
+        attrs['id'] = fields.CompositeKeyField(primary_fields)
 
     class Meta:
         db_table = table.name

@@ -56,8 +56,9 @@ class CompositeKey(dict):
 
 class CompositeKeyField(models.AutoField):
 
-    def __init__(self, columns: list[str], **kwargs):
-        self.columns = columns
+    def __init__(self, fields: list[models.Field], **kwargs):
+        self.fields = fields
+        self.columns = [field.db_column or field.name for field in fields]
         super().__init__(primary_key=True, **kwargs)
 
     def contribute_to_class(self, cls, name, private_only=False):
