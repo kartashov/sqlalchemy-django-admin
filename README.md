@@ -41,17 +41,16 @@ class YourAdmin(ModelAdmin):
 *TODO*
 
 ## Known issues
-1. Composite primary keys are not supported at all.
-2. `on_update` is not supported.
-3. For tables without primary key you must define it explicitly while converting.
+1. `on_update` is not supported.
+2. For tables without primary key you must define it explicitly while converting.
 If there is no suitable unique column, `MultipleObjectsReturned` exception 
 and other inconsistencies can occur.
-4. Only small scope of SQLAlchemy's defaults is supported:
+3. Only small scope of SQLAlchemy's defaults is supported:
    - [scalar](https://docs.sqlalchemy.org/en/14/core/defaults.html#scalar-defaults)
    - [python executed functions](https://docs.sqlalchemy.org/en/14/core/defaults.html#python-executed-functions)
    - enum
-5. Only nullable fields in admin forms are not required by default (`blank=True`).
-6. Foreign keys work correctly only if there is **exactly one** foreign key on the given column.
-7. The lib was only tested for `types.DateTime(timezone=True)` and wasn't tested with no use of timezones.
-8. Integrity errors occuring on db level lead to 500
-9. Now there is no way to define django fields on your own – they're always created automatically.
+4. Only nullable fields in admin forms are not required by default (`blank=True`).
+5. Foreign keys work correctly only if there is **exactly one** foreign key on the given column.
+6. The lib was only tested for `types.DateTime(timezone=True)` and wasn't tested for naive datetimes.
+7. Integrity errors that occur on db level are not catched and lead to 500.
+8. Now there is no way to define django fields on your own – they're always created automatically.

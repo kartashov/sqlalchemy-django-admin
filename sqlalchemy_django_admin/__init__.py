@@ -1,3 +1,5 @@
+import logging
+
 from enum import Enum
 from functools import partial
 
@@ -6,6 +8,9 @@ from sqlalchemy import Table, Column, types
 from sqlalchemy.dialects.postgresql import UUID
 
 from sqlalchemy_django_admin import fields
+
+
+logger = logging.getLogger(__name__)
 
 
 SA_TYPE_TO_MODEL = {
@@ -51,15 +56,17 @@ def _column_as_field(column: Column, pk_column: Column = None) -> tuple[str, mod
     """
     name = column.name
     field_class = SA_TYPE_TO_MODEL[type(column.type)]
+
+    # Primary key is calculated implicitly or can be set explicitly via `pk_column`.
+    # Make sure `pk_column` refers to a column with unique values
+    primary_key = column.primary_key or column is pk_column
     kwargs = dict(
         null=column.nullable,
         default=_convert_default(column.default),
-        # Primary key is calculated implicitly or can be set explicitly.
-        # Make sure that pk_column refers to a column with unique values
-        primary_key=column.primary_key or column is pk_column,
-        # PK is not editable by default, except cases when it refers
-        # to a column of another table
-        editable=bool(not column.primary_key or column.foreign_keys),
+        primary_key=primary_key,
+        # PK is not editable by default, because if you change it,
+        # Django will just create new object on .save()
+        editable=not primary_key,
         # By default only nullable fields marked as not required
         blank=column.nullable,
     )
@@ -73,20 +80,20 @@ def _column_as_field(column: Column, pk_column: Column = None) -> tuple[str, mod
         else:
             field_class = SA_TYPE_TO_MODEL[types.Text]
 
-    # FIXME: what do we do if there are more than 1 fk?
-    if len(column.foreign_keys) == 1:
+    if column.foreign_keys:
         # Trying to find the original table column which is referred from here.
         # Way to deal with composite fk (composite pk reference)
         foreign_key = None
         col = column
         while col.foreign_keys:
+            # FIXME: what do we do if there are more than 1 fk?
             foreign_key, *_ = col.foreign_keys
             col = foreign_key.column
 
         # FIXME: dirty hack
         name = name[:-3] if name.endswith('_id') else f'{name}_obj'
 
-        field_class = models.ForeignKey
+        field_class = fields.ForeignKey
         related_model_name = _generate_model_name(foreign_key.column.table)
         kwargs |= dict(
             to=f'sqlalchemy_django_admin.{related_model_name}',
@@ -104,12 +111,21 @@ def table_as_model(
     name_plural: str = None,
     str_template: str = None,
     pk_column: Column = None,
-) -> models.Model:
+) -> type[models.Model]:
     """
     Converts SQLAlchemy Table to Django Model
     """
     model_name = _generate_model_name(table)
     attrs = dict(_column_as_field(column, pk_column) for column in table.columns)
+
+    # Deal with composite primary key
+    primary_fields = {k: v for k, v in attrs.items() if v.primary_key}
+    if len(primary_fields) > 1:
+        primary_columns = []
+        for field_name, field in primary_fields.items():
+            field.primary_key = False
+            primary_columns.append(field.db_column or field_name)
+        attrs['id'] = fields.CompositeKeyField(primary_columns)
 
     class Meta:
         db_table = table.name
@@ -119,7 +135,9 @@ def table_as_model(
         verbose_name_plural = name_plural or f'{verbose_name}s'
 
     def __str__(obj):
-        return str_template.format(self=obj) if str_template else f'{model_name} object({obj.pk})'
+        pk = obj.pk.to_json_string() if isinstance(obj.pk, fields.CompositeKey) else obj.pk
+        template = str_template or '{model_name} object({pk})'
+        return template.format(self=obj, pk=pk, model_name=model_name)
 
     attrs['Meta'] = Meta
     attrs['__str__'] = __str__
