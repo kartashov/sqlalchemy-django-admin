@@ -4,7 +4,7 @@ setup(
     name='sqlalchemy-django-admin',
     description='Django Admin for SQLAlchemy',
     author='kartashov',
-    version='0.0.1',
+    version='0.0.2',
     packages=find_packages(),
     install_requires=[
         'django>=4.0',
