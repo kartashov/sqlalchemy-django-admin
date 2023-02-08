@@ -14,6 +14,9 @@ class RawJSONField(models.JSONField):
     Json field that works with `json` type columns in admin forms
     instead of `jsonb` for PostgreSQL
     """
+    # Only null is invalid when blank=False
+    empty_values = [None]
+
     def db_type(self, connection):
         return 'json'
 

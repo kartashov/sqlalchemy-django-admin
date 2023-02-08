@@ -14,9 +14,9 @@ class ModelAdmin(admin.ModelAdmin):
     1. Foreign keys are automatically added to `raw_id_fields`
        to prevent loading of all related objects on the form page.
     2. If `list_display` is not defined the first DEFAULT_COLUMNS_COUNT fields
-       are shown on the list page instead of `__str__()` of the model
-    3. If `search_fields` is not defined it will search through the exact values
-       of all primary keys.
+       are shown on the list page instead of `__str__()` of the model.
+    3. If `search_fields` is not defined it will search by the exact value
+       of the primary key. Doesn't work for composite primary keys.
     4. If `list_filter` is not defined it will be filled with fields that have choices
        and fields of boolean type.
     5. All primary key fields (except auto fields) by default are shown on creation page
@@ -46,7 +46,7 @@ class ModelAdmin(admin.ModelAdmin):
 
     def get_search_fields(self, request):
         if not self.search_fields:
-            return [f'={f}' for f in self._primary_field_names]
+            return ['=pk']
         return super().get_search_fields(request)
 
     def get_list_filter(self, request):
