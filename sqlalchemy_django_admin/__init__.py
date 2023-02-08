@@ -60,15 +60,13 @@ def _column_as_field(column: Column, pk_column: Column = None) -> models.Field:
     Converts SQLAlchemy Column to Django Model Field
     """
     field_class = SA_TYPE_TO_MODEL[type(column.type)]
-
-    # Primary key is calculated implicitly or can be set explicitly via `pk_column`.
-    # Make sure `pk_column` refers to a column with unique values
-    primary_key = column.primary_key or column is pk_column
     kwargs = dict(
         name=column.name,
         null=column.nullable,
         default=_convert_default(column.default),
-        primary_key=primary_key,
+        # Primary key is calculated implicitly or can be set explicitly via `pk_column`.
+        # Make sure `pk_column` refers to a column with unique values
+        primary_key=column.primary_key or column is pk_column,
         # By default only nullable fields marked as not required
         blank=column.nullable,
     )
