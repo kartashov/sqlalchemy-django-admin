@@ -10,7 +10,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='kartashov',
-    version='0.0.5',
+    version='0.0.6',
     packages=find_packages(),
     install_requires=[
         'django>=4.0',
