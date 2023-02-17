@@ -109,6 +109,7 @@ def _column_as_field(column: Column, pk_column: Column = None) -> models.Field:
                 on_delete=models.PROTECT,
                 to_field=related_column.name,
                 db_column=column.name,
+                related_name='+',
             )
 
     return field_class(**kwargs)

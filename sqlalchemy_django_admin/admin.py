@@ -34,7 +34,7 @@ class ModelAdmin(admin.ModelAdmin):
 
     @property
     def raw_id_fields(self):
-        return [f.name for f in self.opts.get_fields() if f.is_relation]
+        return [f.name for f in self.opts.fields if f.is_relation]
 
     def get_list_display(self, request):
         if self.list_display == ('__str__',):
